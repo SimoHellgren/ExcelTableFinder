@@ -2,6 +2,10 @@ import zipfile
 import xmltodict
 from itertools import chain
 
+'''
+Author: Simo Hellgrén
+Created: 2018-02-08
+'''
 
 
 def findTables(filepath):
