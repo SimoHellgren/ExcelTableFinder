@@ -11,9 +11,9 @@ def findTables(filepath):
     namelist = archive.namelist()
 
 
-    def getDict(s):
-        res = xmltodict.parse(archive.read(s))
-        return(res)
+    def getDict(xml_file_name):
+        parsed_dict = xmltodict.parse(archive.read(xml_file_name))
+        return(parsed_dict)
 
 
     def getTableInfo(table_xml_filename):
