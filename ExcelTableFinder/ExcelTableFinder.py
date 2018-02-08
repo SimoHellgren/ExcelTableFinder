@@ -2,71 +2,63 @@ import zipfile
 import xmltodict
 from itertools import chain
 
-'''
-Author: Simo Hellgrén
-Created: 2018-02-08
-'''
-
-
-def findTables(filepath):
+def getTables(filepath):
 
     archive = zipfile.ZipFile(filepath)
 
     namelist = archive.namelist()
 
 
-    def getDict(xml_file_name):
-        parsed_dict = xmltodict.parse(archive.read(xml_file_name))
+    def getDict(xml_file):
+        parsed_dict = xmltodict.parse(archive.read(xml_file))
         return(parsed_dict)
 
 
-    def getTableInfo(table_xml_filename):
-        soup = xmltodict.parse(archive.read(table_xml_filename))
-        reference = soup['table']['@ref']
-        uiname = soup['table']['@displayName']
-        return(reference, uiname)
-
-
-    def getSheetDataByID(sheetID):
+    def getSheetName(sheet_no):
         for sheet in sheets:
-            if sheetID in sheet.values():
-                sheet_name = sheet['@name']
-                sheet_no = sheet['@sheetId']
+            if sheet_no in  sheet.values():
+                return(sheet['@name'])
 
-                return(sheet_name, sheet_no)
 
-    ##get sheet names, ID:s and relationshipID:s
+    def getTableInfo(table_xml_name):
+        table = getDict(table_xml_name)
+        table_range = table['table']['@ref']
+        table_name = table['table']['@displayName']
+        return(table_range, table_name)
+
+
+    ##get workbook and sheets
     workbook = getDict('xl/workbook.xml')
     sheets = [od for od in workbook['workbook']['sheets']['sheet']]
 
-    ##find all relationships in document (connect relationshipID:s with table names)
-    rels = [getDict(s) for s in namelist if 'xl/worksheets/_rels/' in s]
-    rels = [r['Relationships']['Relationship'] for r in rels]
+    ##parse a sheetname that corresponds with other references
+    for od in sheets:
+        od['sheetname'] = 'sheet' + od['@sheetId']
 
-    rels = [[r] if type(r) != list else r for r in rels]
-    rels = list(chain(*rels))
+    ##find which tables are in which sheets
+    rels = {s.split('/')[-1].replace('.xml.rels', ''): getDict(s) for s in namelist if 'xl/worksheets/_rels' in s}
 
-    ##get tables and their respective sheet ID:s
-    tables = [{'table_path': s['@Target'],
-               'sheet_ID': s['@Id']} for s in rels]
+    rels = {k: v['Relationships']['Relationship'] for k,v in rels.items()}
 
-    ##create names and get tables':
-    ##1) cell references
-    ##2) sheetnames
-    ##3) sheetnumbers
-
-    for d in tables:
-        d['name'] = d['table_path'].split('/')[-1][:-4]
-
-        table_info = getTableInfo(d['table_path'].replace('..', 'xl'))
-
-        d['cells'] = table_info[0]
-        d['ui_name'] = table_info[1]
-
-        sheet_data = getSheetDataByID(d['sheet_ID'])
-
-        d['sheet_name'] = sheet_data[0]
-        d['sheet_number'] = sheet_data[1]
+    rels = {k: [v] if type(v) != list else v for k, v in rels.items()}
 
 
-    return(tables)
+    for sheet, rellist in rels.items():
+        for rel in rellist:
+            search = sheet
+            name = getSheetName(search)
+            rel['sheet_ui_name'] = name
+
+            table_xml = rel['@Target'].replace('..', 'xl')
+            
+            table_info = getTableInfo(table_xml)
+
+            rel['table_range'] = table_info[0]
+            rel['table_ui_name'] = table_info[1]
+
+    table_data = [{'sheet_ui_name': d['sheet_ui_name'],
+                   'table_ui_name': d['table_ui_name'],
+                   'table_range': d['table_range']} for d in chain(*rels.values())]
+
+    return(table_data)
+    
