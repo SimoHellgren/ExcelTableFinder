@@ -2,6 +2,7 @@ import zipfile
 import xmltodict
 from itertools import chain
 
+
 def getTables(filepath):
 
     archive = zipfile.ZipFile(filepath)
@@ -16,7 +17,7 @@ def getTables(filepath):
 
     def getSheetName(sheet_no):
         for sheet in sheets:
-            if sheet_no in  sheet.values():
+            if sheet_no in sheet.values():
                 return(sheet['@name'])
 
 
@@ -31,12 +32,15 @@ def getTables(filepath):
     workbook = getDict('xl/workbook.xml')
     sheets = [od for od in workbook['workbook']['sheets']['sheet']]
 
+    
     ##parse a sheetname that corresponds with other references
     for od in sheets:
-        od['sheetname'] = 'sheet' + od['@sheetId']
+        od['sheetname'] = 'sheet' + od['@r:id'][-1]
 
     ##find which tables are in which sheets
     rels = {s.split('/')[-1].replace('.xml.rels', ''): getDict(s) for s in namelist if 'xl/worksheets/_rels' in s}
+
+
 
     rels = {k: v['Relationships']['Relationship'] for k,v in rels.items()}
 
